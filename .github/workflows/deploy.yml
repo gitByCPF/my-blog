@@ -1,0 +1,47 @@
+name: Deploy VitePress to Server
+
+on:
+  push:
+    branches: [ master ]   # 如果你用 master 或其它分支请改这里
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build VitePress site
+        run: npm run docs:build
+
+      - name: Upload artifacts (optional for debugging)
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: docs/.vitepress/dist
+
+      - name: Deploy to server via rsync over SSH
+        env:
+          SERVER_IP: ${{ secrets.SERVER_IP }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
+        run: |
+          echo "$SSH_PRIVATE_KEY" > private_key
+          chmod 600 private_key
+          # 创建目标临时目录（可选）
+          ssh -o StrictHostKeyChecking=no -i private_key $SERVER_USER@$SERVER_IP "mkdir -p /tmp/vitepress_deploy"
+          # 使用 rsync 把构建产物同步到服务器临时目录（这样能保证原子性）
+          rsync -avz -e "ssh -i private_key -o StrictHostKeyChecking=no" docs/.vitepress/dist/ $SERVER_USER@$SERVER_IP:/tmp/vitepress_deploy/
+          # 在服务器上把临时目录内容移动到网站根（覆盖），并设置权限
+          ssh -i private_key -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "rsync -av --delete /tmp/vitepress_deploy/ /www/wwwroot/cuipengfei_com/ && chown -R root:root /www/wwwroot/cuipengfei_com/ || true"
+          # 清理临时私钥文件
+          rm -f private_key
