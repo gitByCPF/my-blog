@@ -1,0 +1,19 @@
+/* 覆盖 VitePress 默认 logo 样式 */
+header .VPImage.logo,
+header .vp-logo img,
+.vp-logo img {
+  height: 45px !important;
+  max-height: 45px !important;
+  width: auto !important;
+  border-radius: 40px !important;
+  display: inline-block !important;
+  object-fit: contain !important;
+}
+
+.title {
+  font-size: 1.4rem !important;   /* 调整字体大小 */
+  font-weight: 700 !important;    /* 加粗 */
+  display: flex !important;       /* 保持布局 */
+  align-items: center !important;
+  gap: 0.5rem !important;         /* 可选：文字和 logo 间距 */
+}
