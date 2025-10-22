@@ -11,7 +11,7 @@ header .vp-logo img,
 }
 
 .title {
-  font-size: 1.4rem !important;   /* 调整字体大小 */
+  font-size: 1.3rem !important;   /* 调整字体大小 */
   font-weight: 700 !important;    /* 加粗 */
   display: flex !important;       /* 保持布局 */
   align-items: center !important;
