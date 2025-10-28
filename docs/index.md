@@ -69,7 +69,7 @@
 <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin: 2rem 0;">
 
 ### 📝 最近更新
-- [**🐍 Python 第二个文件**](/python/02-数据类型.md) - Python文章
+- [**🐍 Python 数据类型详解**](/python/02-数据类型.md) - Python文章
 - [**📊 Python 数据类型详解**](/python/10-数据类型.md) - Python文章
 - [**✔ 这是更新的标题**](/python/09-更新内容查看效果.md) - Python文章
 - [**🔧 Python 函数与模块**](/python/04-函数与模块.md) - Python文章
