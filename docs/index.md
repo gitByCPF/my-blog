@@ -69,12 +69,12 @@
 <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin: 2rem 0;">
 
 ### 📝 最近更新
+- [**Git 已经监管的文件如何剔除监管 & 错误处理**](/git/01-未整理.md) - Git文章
 - [**🐍 Python 数据类型详解**](/python/02-数据类型.md) - Python文章
 - [**📊 Python 数据类型详解**](/python/10-数据类型.md) - Python文章
 - [**✔ 这是更新的标题**](/python/09-更新内容查看效果.md) - Python文章
 - [**🔧 Python 函数与模块**](/python/04-函数与模块.md) - Python文章
 - [**🏗️ Python 面向对象编程**](/python/05-面向对象.md) - Python文章
-- [**⚠️ Python 异常处理**](/python/06-异常处理.md) - Python文章
 
 </div>
 
