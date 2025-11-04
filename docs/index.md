@@ -1,12 +1,8 @@
 # 🚀 欢迎来到我的技术博客
 
-<div style="text-align: center; margin: 2rem 0;">
-  <img src="/logo.png" alt="Logo" style="width: 120px; height: 120px; border-radius: 50%; margin-bottom: 1rem;">
-</div>
-
 ## 👋 关于我
 
-你好！我是一名热爱技术的开发者，专注于前端开发、后端开发和数据科学。在这里，我会分享我的学习笔记、技术心得和项目经验。
+你好！我是一名热爱技术的开发者，专注于后端开发，主要是使用java和python语言，未来也会涉及前端和AI的技术。在这里，我会分享我的学习笔记、技术心得和项目经验。
 
 ## 🛠️ 技术栈
 
@@ -69,12 +65,12 @@
 <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin: 2rem 0;">
 
 ### 📝 最近更新
-- [**Git 已经监管的文件如何剔除监管 & 错误处理**](/git/01-未整理.md) - Git文章
+- [**课程笔记**](/AI/课程笔记.md) - AI文章
+- [**🧰 Git 已经监管的文件如何剔除监管 & 错误处理**](/git/01-未整理.md) - Git文章
 - [**🐍 Python 数据类型详解**](/python/02-数据类型.md) - Python文章
 - [**📊 Python 数据类型详解**](/python/10-数据类型.md) - Python文章
 - [**✔ 这是更新的标题**](/python/09-更新内容查看效果.md) - Python文章
 - [**🔧 Python 函数与模块**](/python/04-函数与模块.md) - Python文章
-- [**🏗️ Python 面向对象编程**](/python/05-面向对象.md) - Python文章
 
 </div>
 
