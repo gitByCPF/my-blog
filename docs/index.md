@@ -65,12 +65,12 @@
 <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin: 2rem 0;">
 
 ### 📝 最近更新
-- [**课程笔记**](/AI/课程笔记.md) - AI文章
-- [**🧰 Git 已经监管的文件如何剔除监管 & 错误处理**](/git/01-未整理.md) - Git文章
-- [**🐍 Python 数据类型详解**](/python/02-数据类型.md) - Python文章
-- [**📊 Python 数据类型详解**](/python/10-数据类型.md) - Python文章
-- [**✔ 这是更新的标题**](/python/09-更新内容查看效果.md) - Python文章
-- [**🔧 Python 函数与模块**](/python/04-函数与模块.md) - Python文章
+- [**✨ Java 8+ 新特性**](/java/21-Java主要版本+新特性.md) - Java文章
+- [**🖥️ JVM 基础**](/java/20-JVM基础.md) - Java文章
+- [**🔍 反射机制**](/java/22-反射机制.md) - Java文章
+- [**📦 模块化与包管理**](/java/23-模块化与包管理.md) - Java文章
+- [**🧪 单元测试**](/java/24-单元测试.md) - Java文章
+- [**🎨 设计模式**](/java/25-设计模式.md) - Java文章
 
 </div>
 
