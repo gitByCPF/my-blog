@@ -1,13 +1,14 @@
-const { readFileSync, writeFileSync, readdirSync, statSync, watch } = require('fs')
+const { readFileSync, writeFileSync, readdirSync, statSync, existsSync } = require('fs')
 const { join } = require('path')
 
 // 配置选项
 const CONFIG = {
-  maxArticles: 6, // 显示的最新文章数量
-  docsPath: 'docs', // 文档目录
-  indexPath: 'docs/index.md', // 主页文件路径
-  excludeDirs: ['.vitepress', 'public'], // 排除的目录
-  excludeFiles: ['index.md'], // 排除的文件
+  maxArticles: 6,
+  docsPath: 'docs',
+  indexPath: 'docs/index.md',
+  excludeDirs: ['.vitepress', 'public'],
+  excludeFiles: ['index.md'],
+  jsonPath: 'latest-articles.json' // 存储最新文章信息的 JSON
 }
 
 // 自定义分类显示名称
@@ -18,171 +19,90 @@ const CUSTOM_CATEGORY_NAMES = {
   'python': 'Python',
 }
 
-// 获取最新文章的函数
-function getLatestArticles(maxCount = CONFIG.maxArticles) {
+// 获取所有文章
+function getAllArticles() {
   const docsPath = join(process.cwd(), CONFIG.docsPath)
   const articles = []
-  
-  try {
-    const items = readdirSync(docsPath)
-    
-    for (const item of items) {
-      const itemPath = join(docsPath, item)
-      const stat = statSync(itemPath)
-      
-      if (stat.isDirectory() && !item.startsWith('.') && !CONFIG.excludeDirs.includes(item)) {
-        const mdFiles = readdirSync(itemPath)
-          .filter(file => file.endsWith('.md') && !CONFIG.excludeFiles.includes(file))
-          .sort((a, b) => {
-            const aNum = parseInt(a.match(/^\d+/)?.[0] || '0')
-            const bNum = parseInt(b.match(/^\d+/)?.[0] || '0')
-            return aNum - bNum
-          })
-        
-        for (const file of mdFiles) {
-          try {
-            const filePath = join(itemPath, file)
-            const { execSync } = require('child_process')
-            const content = readFileSync(filePath, 'utf-8')
-            
-            // 提取标题
-            const titleMatch = content.match(/^#\s+(.+)$/m)
-            let title = titleMatch ? titleMatch[1] : file.replace(/^\d+-/, '').replace('.md', '')
-            
-            // 移除emoji但保留文字部分 - 简单方法
-            // title = title.replace(/^[^\u0000-\u007F\u4e00-\u9fff]\s*/, '').trim()
-            title = title.trim()
-            
-            console.log(`mtime for ${filePath}:`, getGitMTime(filePath))  // 🧩 调试输出
 
-            console.log(getGitMTime(filePath));  // 打印文件的Git修改时间 
-            articles.push({
-              title,
-              link: `/${item}/${file}`,
-              category: CUSTOM_CATEGORY_NAMES[item] || item.charAt(0).toUpperCase() + item.slice(1),
-              mtime: getGitMTime(filePath),
-              fileName: file,
-              fullPath: filePath
-            })
-          } catch (fileError) {
-            console.warn(`处理文件 ${file} 时出错:`, fileError.message)
-          }
-        }
+  const items = readdirSync(docsPath)
+  for (const item of items) {
+    const itemPath = join(docsPath, item)
+    const stat = statSync(itemPath)
+    if (stat.isDirectory() && !item.startsWith('.') && !CONFIG.excludeDirs.includes(item)) {
+      const mdFiles = readdirSync(itemPath)
+        .filter(file => file.endsWith('.md') && !CONFIG.excludeFiles.includes(file))
+        .sort((a, b) => {
+          const aNum = parseInt(a.match(/^\d+/)?.[0] || '0')
+          const bNum = parseInt(b.match(/^\d+/)?.[0] || '0')
+          return aNum - bNum
+        })
+
+      for (const file of mdFiles) {
+        const filePath = join(itemPath, file)
+        const content = readFileSync(filePath, 'utf-8')
+        const titleMatch = content.match(/^#\s+(.+)$/m)
+        const title = titleMatch ? titleMatch[1].trim() : file.replace(/^\d+-/, '').replace('.md', '')
+        articles.push({
+          title,
+          link: `/${item}/${file}`,
+          category: CUSTOM_CATEGORY_NAMES[item] || item.charAt(0).toUpperCase() + item.slice(1),
+          filePath
+        })
       }
     }
-    
-    // 按修改时间排序，最新的在前
-    articles.sort((a, b) => b.mtime - a.mtime)
-    
-    return articles.slice(0, maxCount)
-  } catch (error) {
-    console.warn('获取最新文章时出错:', error.message)
-    return []
   }
+
+  return articles
 }
 
-// 获取文件的Git修改时间
-function getGitMTime(filePath) {
-  try {
-    const timestamp = execSync(`git log -1 --format=%ct "${filePath}"`, { encoding: 'utf-8' }).trim()
-    return new Date(parseInt(timestamp) * 1000)
-  } catch {
-    // 如果文件未提交过（如新文件）
-    return statSync(filePath).mtime
+// 更新 JSON 文件
+function updateJSON() {
+  const jsonFullPath = join(process.cwd(), CONFIG.jsonPath)
+  let prevData = {}
+  if (existsSync(jsonFullPath)) {
+    prevData = JSON.parse(readFileSync(jsonFullPath, 'utf-8'))
   }
-}
 
-// 更新主页的最新文章部分
-function updateLatestArticles() {
-  const indexPath = join(process.cwd(), CONFIG.indexPath)
-  
-  try {
-    const content = readFileSync(indexPath, 'utf-8')
-    const articles = getLatestArticles()
-    
-    if (articles.length === 0) {
-      console.log('没有找到文章')
-      return false
-    }
-    
-    // 生成最新文章的Markdown内容
-    let latestArticlesMarkdown = '<div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin: 2rem 0;">\n\n### 📝 最近更新\n'
-    
-    articles.forEach(article => {
-      latestArticlesMarkdown += `- [**${article.title}**](${article.link}) - ${article.category}文章\n`
-    })
-    
-    latestArticlesMarkdown += '\n</div>'
-    
-    // 替换主页中的最新文章部分
-    const updatedContent = content.replace(
-      /## 🎯 最新文章[\s\S]*?(?=## 🌟 项目展示)/,
-      `## 🎯 最新文章\n\n${latestArticlesMarkdown}\n\n`
-    )
-    
-    writeFileSync(indexPath, updatedContent, 'utf-8')
-    console.log('✅ 主页最新文章已更新')
-    console.log('📝 最新文章:')
-    articles.forEach((article, index) => {
-      console.log(`   ${index + 1}. ${article.title} (${article.category})`)
-    })
-    
-    return true
-  } catch (error) {
-    console.error('❌ 更新主页时出错:', error.message)
-    return false
-  }
-}
+  const articles = getAllArticles()
+  const timestamp = Date.now()
 
-// 监听文件变化
-function watchFiles() {
-  const docsPath = join(process.cwd(), CONFIG.docsPath)
-  console.log('👀 开始监听文件变化...')
-  
-  watch(docsPath, { recursive: true }, (eventType, filename) => {
-    if (filename && filename.endsWith('.md') && !filename.includes('index.md')) {
-      console.log(`📝 检测到文件变化: ${filename}`)
-      setTimeout(() => {
-        updateLatestArticles()
-      }, 1000) // 延迟1秒执行，避免文件正在写入
+  // 更新每篇文章的时间戳，如果已有就保留旧时间
+  const updatedArticles = articles.map(a => {
+    const key = a.link
+    return {
+      ...a,
+      mtime: prevData[key]?.mtime || timestamp
     }
   })
+
+  // 保存 JSON
+  writeFileSync(jsonFullPath, JSON.stringify(updatedArticles, null, 2), 'utf-8')
+  return updatedArticles
 }
 
-// 显示帮助信息
-function showHelp() {
-  console.log(`
-📚 自动更新最新文章脚本
+// 根据 JSON 生成首页 Markdown
+function updateIndex() {
+  const indexPath = join(process.cwd(), CONFIG.indexPath)
+  const content = readFileSync(indexPath, 'utf-8')
 
-使用方法:
-  node scripts/update-latest-articles.js          # 手动更新一次
-  node scripts/update-latest-articles.js --watch  # 监听模式
-  node scripts/update-latest-articles.js --help    # 显示帮助
+  const articles = updateJSON()
+  // 按 mtime 排序，最新在前
+  articles.sort((a, b) => b.mtime - a.mtime)
+  const latestArticles = articles.slice(0, CONFIG.maxArticles)
 
-配置选项:
-  - 最大文章数: ${CONFIG.maxArticles}
-  - 文档目录: ${CONFIG.docsPath}
-  - 排除目录: ${CONFIG.excludeDirs.join(', ')}
-  - 排除文件: ${CONFIG.excludeFiles.join(', ')}
-`)
+  let latestMarkdown = '<div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin: 2rem 0;">\n\n### 📝 最近更新\n'
+  latestArticles.forEach(a => {
+    latestMarkdown += `- [**${a.title}**](${a.link}) - ${a.category}文章\n`
+  })
+  latestMarkdown += '\n</div>'
+
+  const updatedContent = content.replace(
+    /## 🎯 最新文章[\s\S]*?(?=## 🌟 项目展示)/,
+    `## 🎯 最新文章\n\n${latestMarkdown}\n\n`
+  )
+
+  writeFileSync(indexPath, updatedContent, 'utf-8')
+  console.log('✅ 主页最新文章已更新')
 }
 
-// 主函数
-function main() {
-  const args = process.argv.slice(2)
-  
-  if (args.includes('--help')) {
-    showHelp()
-    return
-  }
-  
-  if (args.includes('--watch')) {
-    updateLatestArticles()
-    watchFiles()
-  } else {
-    updateLatestArticles()
-  }
-}
-
-// 运行主函数
-main()
+updateIndex()
