@@ -138,7 +138,8 @@ function generateNavConfig() {
         if (mdFiles.length > 0) {
           // 生成侧边栏配置
           sidebar[`/${item}/`] = mdFiles.map(file => {
-            const fileName = file.replace(/^\d+-/, '').replace('.md', '') // 移除序号前缀
+            // const fileName = file.replace(/^\d+-/, '').replace('.md', '') // 移除序号前缀
+            const fileName = file.replace('.md', '')
             return {
               text: fileName,
               link: `/${item}/${file}`
