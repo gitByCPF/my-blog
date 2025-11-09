@@ -1,7 +1,4 @@
-# 核心设置：让Git自行判断是否为文本文件，并进行换行符转换
-* text=auto
-
-# 明确指定这些重要的配置文件使用LF换行符
-package.json text eol=lf
-package-lock.json text eol=lf
-*.js text eol=lf
+# 默认使用 LF
+* text eol=lf
+# 仅 Windows 批处理文件用 CRLF
+*.bat text eol=crlf
