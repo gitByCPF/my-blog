@@ -42,7 +42,7 @@ function getLatestArticles(maxCount = CONFIG.maxArticles) {
         for (const file of mdFiles) {
           try {
             const filePath = join(itemPath, file)
-            const fileStat = statSync(filePath)
+            const { execSync } = require('child_process')
             const content = readFileSync(filePath, 'utf-8')
             
             // 提取标题
@@ -57,7 +57,7 @@ function getLatestArticles(maxCount = CONFIG.maxArticles) {
               title,
               link: `/${item}/${file}`,
               category: CUSTOM_CATEGORY_NAMES[item] || item.charAt(0).toUpperCase() + item.slice(1),
-              mtime: fileStat.mtime,
+              mtime: getGitMTime(filePath),
               fileName: file,
               fullPath: filePath
             })
@@ -75,6 +75,17 @@ function getLatestArticles(maxCount = CONFIG.maxArticles) {
   } catch (error) {
     console.warn('获取最新文章时出错:', error.message)
     return []
+  }
+}
+
+// 获取文件的Git修改时间
+function getGitMTime(filePath) {
+  try {
+    const timestamp = execSync(`git log -1 --format=%ct "${filePath}"`, { encoding: 'utf-8' }).trim()
+    return new Date(parseInt(timestamp) * 1000)
+  } catch {
+    // 如果文件未提交过（如新文件）
+    return statSync(filePath).mtime
   }
 }
 
