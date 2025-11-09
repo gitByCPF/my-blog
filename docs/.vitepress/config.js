@@ -166,7 +166,6 @@ const latestArticles = getLatestArticles(6)
 export default {
   title: "崔鹏飞的技术博客",
   description: "分享技术笔记",
-  base: "/my-blog/",
   head: [
     ['link', { rel: 'icon', href: '/favicon.ico' }]
   ],
