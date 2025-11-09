@@ -53,6 +53,9 @@ function getLatestArticles(maxCount = CONFIG.maxArticles) {
             // title = title.replace(/^[^\u0000-\u007F\u4e00-\u9fff]\s*/, '').trim()
             title = title.trim()
             
+            console.log(`mtime for ${filePath}:`, getGitMTime(filePath))  // 🧩 调试输出
+
+            console.log(getGitMTime(filePath));  // 打印文件的Git修改时间 
             articles.push({
               title,
               link: `/${item}/${file}`,
