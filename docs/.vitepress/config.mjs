@@ -1,13 +1,14 @@
 import { readdirSync, statSync, readFileSync } from 'fs'
 import { join } from 'path'
+import { defineConfig } from 'vitepress'
 
 // 自定义导航顺序配置
 const CUSTOM_NAV_ORDER = [
-  'java',        // Java 排在第一位
-  'python',      // Python 排在第二位
-  'react',       // React 排在第三位
-  'javascript',  // JavaScript 排在第四位
-  // 可以继续添加其他分类...
+  'java',
+  'python',
+  'tools',
+  'react',
+  'javascript',
 ]
 
 // 自定义分类显示名称
@@ -16,7 +17,7 @@ const CUSTOM_CATEGORY_NAMES = {
   'javascript': 'JavaScript', 
   'react': 'React',
   'python': 'Python',
-  // 可以继续添加其他分类的显示名称...
+  'tools': 'Tools',
 }
 
 // 获取最新文章的函数
@@ -45,7 +46,6 @@ function getLatestArticles(maxCount = 6) {
           const fileStat = statSync(filePath)
           const content = readFileSync(filePath, 'utf-8')
           
-          // 提取标题
           const titleMatch = content.match(/^#\s+(.+)$/m)
           const title = titleMatch ? titleMatch[1].replace(/^[🎯🚀📊🔧⚠️📁🏗️🐍]/g, '').trim() : file.replace(/^\d+-/, '').replace('.md', '')
           
@@ -60,9 +60,7 @@ function getLatestArticles(maxCount = 6) {
       }
     }
     
-    // 按修改时间排序，最新的在前
     articles.sort((a, b) => b.mtime - a.mtime)
-    
     return articles.slice(0, maxCount)
   } catch (error) {
     console.warn('获取最新文章时出错:', error.message)
@@ -85,7 +83,6 @@ function generateLatestArticlesMarkdown() {
   })
   
   markdown += '\n</div>'
-  
   return markdown
 }
 
@@ -96,20 +93,15 @@ function generateNavConfig() {
   const sidebar = {}
   
   try {
-    // 读取 docs 目录下的所有文件夹
     const items = readdirSync(docsPath)
-    
-    // 按照自定义顺序处理文件夹
     const orderedItems = []
     
-    // 首先添加自定义顺序中的文件夹
     for (const customOrder of CUSTOM_NAV_ORDER) {
       if (items.includes(customOrder)) {
         orderedItems.push(customOrder)
       }
     }
     
-    // 然后添加其他未在自定义顺序中的文件夹（按字母顺序）
     const remainingItems = items
       .filter(item => !CUSTOM_NAV_ORDER.includes(item))
       .sort()
@@ -120,36 +112,29 @@ function generateNavConfig() {
       const itemPath = join(docsPath, item)
       const stat = statSync(itemPath)
       
-      // 只处理文件夹，且排除 .vitepress 和 public 文件夹
       if (stat.isDirectory() && !item.startsWith('.') && item !== 'public') {
-        // 使用自定义名称，如果没有则使用首字母大写
         const categoryName = CUSTOM_CATEGORY_NAMES[item] || item.charAt(0).toUpperCase() + item.slice(1)
         
-        // 读取该文件夹下的所有 .md 文件
         const mdFiles = readdirSync(itemPath)
           .filter(file => file.endsWith('.md'))
           .sort((a, b) => {
-            // 按文件名中的数字序号排序
             const aNum = parseInt(a.match(/^\d+/)?.[0] || '0')
             const bNum = parseInt(b.match(/^\d+/)?.[0] || '0')
             return aNum - bNum
           })
         
         if (mdFiles.length > 0) {
-          // 生成侧边栏配置
           sidebar[`/${item}/`] = mdFiles.map(file => {
-            // const fileName = file.replace(/^\d+-/, '').replace('.md', '') // 移除序号前缀
-            const fileName = file.replace('.md', '') // 移除序号前缀
+            const fileName = file.replace('.md', '')
             return {
               text: fileName,
               link: `/${item}/${file}`
             }
           })
           
-          // 生成导航配置
           nav.push({
             text: categoryName,
-            link: `/${item}/${mdFiles[0]}` // 链接到第一个文件
+            link: `/${item}/${mdFiles[0]}`
           })
         }
       }
@@ -164,13 +149,57 @@ function generateNavConfig() {
 const { nav, sidebar } = generateNavConfig()
 const latestArticles = getLatestArticles(6)
 
-export default {
+export default defineConfig({
   title: "崔鹏飞的技术博客",
   description: "分享技术笔记",
   head: [
     ['link', { rel: 'icon', href: '/favicon.ico' }]
   ],
   ignoreDeadLinks: true,
+  
+  // Vite 配置 - B站 API 代理
+  vite: {
+    server: {
+      proxy: {
+        '/bili-api': {
+          target: 'https://api.bilibili.com',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/bili-api/, ''),
+          configure: (proxy, options) => {
+            proxy.on('proxyReq', (proxyReq, req, res) => {
+              // 从自定义请求头获取 Cookie
+              const biliCookie = req.headers['x-bili-cookie']
+              
+              console.log('代理请求:', req.url)
+              console.log('收到的 Cookie 头:', biliCookie ? '有' : '无')
+              
+              if (biliCookie) {
+                // 设置标准的 Cookie 请求头
+                proxyReq.setHeader('Cookie', biliCookie)
+                console.log('已设置 Cookie 到代理请求')
+              }
+              
+              // 设置其他必要的请求头
+              proxyReq.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+              proxyReq.setHeader('Referer', 'https://www.bilibili.com')
+              proxyReq.setHeader('Origin', 'https://www.bilibili.com')
+            })
+            
+            // 监听响应
+            proxy.on('proxyRes', (proxyRes, req, res) => {
+              console.log('代理响应状态:', proxyRes.statusCode)
+            })
+            
+            // 监听错误
+            proxy.on('error', (err, req, res) => {
+              console.error('代理错误:', err)
+            })
+          }
+        }
+      }
+    }
+  },
+  
   themeConfig: {
     logo: "/logo.png",
     sidebar,
@@ -178,7 +207,6 @@ export default {
       ...nav,
       { text: "GitHub", link: "https://github.com/gitByCPF/my-blog" }
     ],
-    // 导出最新文章数据供主题使用
     latestArticles,
-  },
-}
+  }
+})

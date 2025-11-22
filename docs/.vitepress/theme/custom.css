@@ -17,3 +17,24 @@ header .vp-logo img,
   align-items: center !important;
   gap: 0.5rem !important;         /* 可选：文字和 logo 间距 */
 }
+
+/* ⭐ bilibili评论管理器样式 */
+/* 自定义样式补充 */
+.vp-doc .bili-comment-manager {
+  margin: 2rem 0;
+}
+
+/* 确保在暗色模式下也能正常显示 */
+.dark .bili-comment-manager .auth-section,
+.dark .bili-comment-manager .comment-section {
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-1);
+}
+
+.dark .bili-comment-manager .login-method {
+  background: var(--vp-c-bg-soft-up);
+}
+
+.dark .bili-comment-manager .comment-item {
+  background: var(--vp-c-bg-soft-up);
+}
