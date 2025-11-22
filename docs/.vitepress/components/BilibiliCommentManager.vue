@@ -1,22 +1,12 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from "vue";
-
-// 直接判断环境，不依赖 .env 文件
-const API_BASE = import.meta.env.DEV ? '/bili-api' : 'https://api.bilibili.com';
-
-console.log('当前环境:', import.meta.env.MODE);
-console.log('API_BASE:', API_BASE);
+import { ref, computed, onMounted, nextTick } from "vue";
 
 const API = {
-  replyList: `${API_BASE}/x/msgfeed/reply`,
-  likeList: `${API_BASE}/x/msgfeed/like`,
-  deleteReply: `${API_BASE}/x/v2/reply/del`,
-  deleteMsg: `${API_BASE}/x/msgfeed/del`,
+  replyList: "/bili-api/x/msgfeed/reply",
+  likeList: "/bili-api/x/msgfeed/like",
+  deleteReply: "/bili-api/x/v2/reply/del",
+  deleteMsg: "/bili-api/x/msgfeed/del",
 };
-
-console.log('API配置:', API);
-
-// ... 其他代码保持不变
 
 // ---------- 状态 ----------
 const cookieInput = ref("");
@@ -24,14 +14,13 @@ const isAuthed = ref(false);
 const cookieStr = ref("");
 const csrfToken = ref("");
 
-const currentTab = ref("reply");
+const currentTab = ref("reply"); // reply 或 like
 const replyItems = ref([]);
 const likeItems = ref([]);
 const replyCursor = ref({ id: 0, time: 0, is_end: false });
 const likeCursor = ref({ id: 0, time: 0, is_end: false });
 const replyLoading = ref(false);
 const likeLoading = ref(false);
-const selectedIds = ref(new Set());
 const replySelectedIds = ref(new Set());
 const likeSelectedIds = ref(new Set());
 const isLoading = ref(false);
@@ -39,6 +28,7 @@ const statusMessage = ref({ text: "", type: "" });
 const deletedReplyCount = ref(0);
 const deletedMsgCount = ref(0);
 
+// ---------- 滚动容器 ----------
 const replyScrollContainer = ref(null);
 const likeScrollContainer = ref(null);
 
@@ -100,18 +90,18 @@ async function apiPostForm(url, formObj) {
 async function loadMoreReply() {
   if (replyLoading.value || replyCursor.value.is_end) return;
   replyLoading.value = true;
-  
+
   const params = replyCursor.value.id
     ? { id: replyCursor.value.id, reply_time: replyCursor.value.time }
     : {};
-  
+
   const res = await apiGet(API.replyList, params);
   const items = res?.data?.items || [];
-  
+
   for (const it of items) it._source = "reply";
   replyItems.value.push(...items);
   replyItems.value = uniqById(replyItems.value);
-  
+
   if (res?.data?.cursor) {
     const c = res.data.cursor;
     replyCursor.value.id = c.id || 0;
@@ -120,7 +110,7 @@ async function loadMoreReply() {
   } else {
     replyCursor.value.is_end = true;
   }
-  
+
   replyLoading.value = false;
 }
 
@@ -134,7 +124,7 @@ async function loadMoreLike() {
 
   const res = await apiGet(API.likeList, params);
   const items = res?.data?.total?.items || [];
-  
+
   for (const it of items) {
     it._source = "like";
     it.title = it.item?.title || "(无标题)";
@@ -156,6 +146,7 @@ async function loadMoreLike() {
   likeLoading.value = false;
 }
 
+// ---------- 当前 Tab 加载 ----------
 async function loadMoreForTab(tab) {
   if (tab === "reply") await loadMoreReply();
   else await loadMoreLike();
@@ -187,7 +178,6 @@ function logout() {
   csrfToken.value = "";
   replyItems.value = [];
   likeItems.value = [];
-  selectedIds.value = new Set();
   replySelectedIds.value = new Set();
   likeSelectedIds.value = new Set();
   deletedReplyCount.value = 0;
@@ -195,8 +185,9 @@ function logout() {
 }
 
 // ---------- 选择 ----------
-function toggleSelect(id) {
-  if (currentTab.value === "reply") {
+function toggleSelect(id, source = null) {
+  // source 可以不传，template 已按 tab 调用
+  if (source === "reply" || currentTab.value === "reply") {
     const s = replySelectedIds.value;
     if (s.has(id)) s.delete(id);
     else s.add(id);
@@ -210,14 +201,26 @@ function toggleSelect(id) {
 }
 
 async function selectAll() {
+  // 全选分别处理两个 tab（只针对当前 tab 的 selectAll 保持原来的行为）
   if (currentTab.value === "reply") {
-    while (!replyCursor.value.is_end) await loadMoreReply();
+    showMessage("正在加载所有回复数据，请稍候（可能需要几秒）...", "success");
+    while (!replyCursor.value.is_end) {
+      await loadMoreReply();
+      // 为避免阻塞主线程太久，短暂让出 (微等待)
+      await new Promise((r) => setTimeout(r, 50));
+    }
     const arr = replyItems.value.map((c) => c.item?.subject_id || c.id);
     replySelectedIds.value = new Set(arr);
+    showMessage(`已选择全部回复（${arr.length} 条组）`, "success");
   } else {
-    while (!likeCursor.value.is_end) await loadMoreLike();
+    showMessage("正在加载所有喜欢数据，请稍候（可能需要几秒）...", "success");
+    while (!likeCursor.value.is_end) {
+      await loadMoreLike();
+      await new Promise((r) => setTimeout(r, 50));
+    }
     const arr = likeItems.value.map((c) => c.id);
     likeSelectedIds.value = new Set(arr);
+    showMessage(`已选择全部喜欢（${arr.length} 条）`, "success");
   }
 }
 
@@ -230,117 +233,169 @@ function deselectAll() {
 }
 
 // ---------- 删除 ----------
+// helper: 找到分组 key（subject_id）对应的 items（reply）
+function findReplyGroupBySubject(subjectId) {
+  return replyItems.value.filter((it) => (it.item?.subject_id || it.id) === subjectId);
+}
+
+// 主删除函数：同时处理 reply 和 like 选中的项
 async function performDelete(deleteReplyOption, deleteMsgOption) {
   if (!csrfToken.value) return showMessage("未解析到 bili_jct", "error");
-  
-  const currentSelectedIds = currentTab.value === "reply" ? replySelectedIds.value : likeSelectedIds.value;
-  
-  if (currentSelectedIds.size === 0)
+
+  const replySel = Array.from(replySelectedIds.value);
+  const likeSel = Array.from(likeSelectedIds.value);
+
+  if (replySel.length === 0 && likeSel.length === 0) {
     return showMessage("请先选择要删除的项", "error");
-  
-  const actionText = deleteReplyOption && deleteMsgOption 
-    ? "删除评论和消息通知" 
-    : deleteReplyOption 
-    ? "删除评论" 
-    : "删除消息通知";
-  
-  if (!confirm(`确定要${actionText}选中的 ${currentSelectedIds.size} 条？`)) return;
-  
+  }
+
+  const actionText = deleteReplyOption && deleteMsgOption
+    ? "删除评论和消息通知"
+    : deleteReplyOption
+      ? "删除评论"
+      : "删除消息通知";
+
+  if (!confirm(`确定要${actionText}选中的 ${replySel.length + likeSel.length} 项？`)) return;
+
   isLoading.value = true;
-  const selectedSubjectIds = Array.from(currentSelectedIds);
-  
-  if (currentTab.value === "reply") {
-    for (const subjectId of selectedSubjectIds) {
-      const itemsToDelete = replyItems.value.filter(
-        (item) => (item.item?.subject_id || item.id) === subjectId
-      );
-      
-      console.log(`删除subject_id=${subjectId}，包含${itemsToDelete.length}个items`);
-      
-      for (const item of itemsToDelete) {
-        const itemId = item.id;
-        
-        if (deleteReplyOption) {
+  let totalToProcess = replySel.length + likeSel.length;
+  let processed = 0;
+
+  // 重置计数
+  let localDeletedReply = 0;
+  let localDeletedMsg = 0;
+
+  // ---- 先处理 reply 组 ----
+  for (const subjectId of replySel) {
+    const items = findReplyGroupBySubject(subjectId);
+    if (!items || items.length === 0) {
+      // 如果没找到，跳过
+      processed++;
+      continue;
+    }
+
+    // 取 target_id（以 items[0] 为准）
+    const root = items[0]?.item?.target_id ?? items[0]?.target_id ?? items[0]?.item?.target_id;
+    // 如果没有 target_id，尝试用 items[0].id 作为回退 rpid（但这通常不对）
+    const rpid = root || items[0]?.id;
+
+    // 删除评论（reply）—— 对 reply 组：只调用一次 rpid
+    if (deleteReplyOption) {
+      try {
+        const r = await apiPostForm(API.deleteReply, {
+          rpid,
+          type: 1, // B站删除评论接口一般需要 type（保留你原来写法）
+          csrf: csrfToken.value,
+        });
+        if (r?.code === 0) {
+          localDeletedReply++;
+          console.log(`✓ (reply) 删除评论成功: rpid=${rpid}`);
+        } else {
+          console.warn(`✗ (reply) 删除评论失败: rpid=${rpid}`, r);
+        }
+      } catch (e) {
+        console.error("删除评论请求异常", e);
+      }
+      // 小延迟避免触发风控
+      await new Promise((r) => setTimeout(r, 180));
+    }
+
+    // 删除消息通知（message）—— 对 reply 组：需要循环删除组内每条 item.id，tp=1
+    if (deleteMsgOption) {
+      for (const it of items) {
+        try {
+          const m = await apiPostForm(API.deleteMsg, {
+            id: it.id,
+            tp: 1, // 修正：tp=1
+            csrf: csrfToken.value,
+          });
+          if (m?.code === 0) {
+            localDeletedMsg++;
+            console.log(`✓ (reply) 删除消息成功: id=${it.id}`);
+          } else {
+            console.warn(`✗ (reply) 删除消息失败: id=${it.id}`, m);
+          }
+        } catch (e) {
+          console.error("删除消息请求异常", e);
+        }
+        await new Promise((r) => setTimeout(r, 140));
+      }
+    }
+
+    // 从 replyItems 中移除该组（按 subject_id）
+    replyItems.value = replyItems.value.filter((i) => (i.item?.subject_id || i.id) !== subjectId);
+    // 从选择集合中移除
+    replySelectedIds.value.delete(subjectId);
+
+    processed++;
+  }
+
+  // ---- 再处理 like ----
+  for (const likeId of likeSel) {
+    const item = likeItems.value.find((i) => i.id === likeId);
+    if (!item) {
+      processed++;
+      continue;
+    }
+
+    // 删除评论（reply）—— like: 使用 item.item.item_id 作为 rpid
+    if (deleteReplyOption) {
+      const likeRpid = item.item?.item_id ?? item.item_id ?? null;
+      if (likeRpid) {
+        try {
           const r = await apiPostForm(API.deleteReply, {
-            rpid: itemId,
+            rpid: likeRpid,
             type: 1,
             csrf: csrfToken.value,
           });
           if (r?.code === 0) {
-            deletedReplyCount.value++;
-            console.log(`✓ 删除评论成功: rpid=${itemId}`);
+            localDeletedReply++;
+            console.log(`✓ (like) 删除评论成功: rpid=${likeRpid}`);
           } else {
-            console.log(`✗ 删除评论失败: rpid=${itemId}`, r);
+            console.warn(`✗ (like) 删除评论失败: rpid=${likeRpid}`, r);
           }
+        } catch (e) {
+          console.error("删除评论请求异常", e);
         }
-        
-        if (deleteMsgOption) {
-          const m = await apiPostForm(API.deleteMsg, {
-            id: itemId,
-            type: 1,
-            csrf: csrfToken.value,
-          });
-          if (m?.code === 0) {
-            deletedMsgCount.value++;
-            console.log(`✓ 删除消息成功: id=${itemId}`);
-          } else {
-            console.log(`✗ 删除消息失败: id=${itemId}`, m);
-          }
-        }
-        
-        await new Promise((r) => setTimeout(r, 200));
+        await new Promise((r) => setTimeout(r, 180));
+      } else {
+        console.warn("like 项没有 item_id, 跳过删除评论: ", item);
       }
-      
-      replyItems.value = replyItems.value.filter(
-        (i) => (i.item?.subject_id || i.id) !== subjectId
-      );
-      replySelectedIds.value.delete(subjectId);
     }
-  } else {
-    for (const itemId of selectedSubjectIds) {
-      if (deleteReplyOption) {
-        const r = await apiPostForm(API.deleteReply, {
-          rpid: itemId,
-          type: 1,
-          csrf: csrfToken.value,
-        });
-        if (r?.code === 0) {
-          deletedReplyCount.value++;
-          console.log(`✓ 删除评论成功: rpid=${itemId}`);
-        } else {
-          console.log(`✗ 删除评论失败: rpid=${itemId}`, r);
-        }
-      }
-      
-      if (deleteMsgOption) {
+
+    // 删除消息通知（message）—— like: 使用 item.id，tp=0
+    if (deleteMsgOption) {
+      try {
         const m = await apiPostForm(API.deleteMsg, {
-          id: itemId,
-          type: 1,
+          id: item.id,
+          tp: 0,
           csrf: csrfToken.value,
         });
         if (m?.code === 0) {
-          deletedMsgCount.value++;
-          console.log(`✓ 删除消息成功: id=${itemId}`);
+          localDeletedMsg++;
+          console.log(`✓ (like) 删除消息成功: id=${item.id}`);
         } else {
-          console.log(`✗ 删除消息失败: id=${itemId}`, m);
+          console.warn(`✗ (like) 删除消息失败: id=${item.id}`, m);
         }
+      } catch (e) {
+        console.error("删除消息请求异常", e);
       }
-      
-      await new Promise((r) => setTimeout(r, 200));
-      
-      likeItems.value = likeItems.value.filter((i) => i.id !== itemId);
-      likeSelectedIds.value.delete(itemId);
+      await new Promise((r) => setTimeout(r, 140));
     }
+
+    // 从 likeItems 中移除
+    likeItems.value = likeItems.value.filter((i) => i.id !== likeId);
+    likeSelectedIds.value.delete(likeId);
+
+    processed++;
   }
-  
-  if (currentTab.value === "reply") {
-    replySelectedIds.value = new Set(replySelectedIds.value);
-  } else {
-    likeSelectedIds.value = new Set(likeSelectedIds.value);
-  }
-  
+
+  // 更新计数并结束
+  deletedReplyCount.value += localDeletedReply;
+  deletedMsgCount.value += localDeletedMsg;
+
   isLoading.value = false;
-  showMessage("批量删除完成", "success");
+  showMessage(`删除完成：已删评论 ${localDeletedReply} 条，已删消息 ${localDeletedMsg} 条`, "success");
 }
 
 // ---------- Tab ----------
@@ -359,13 +414,10 @@ const switchTab = (tab) => {
 // ---------- 滚动监听 ----------
 function onReplyScroll(e) {
   const container = e.target;
-  
   if (replyLoading.value) return;
   if (replyCursor.value.is_end) return;
-  
   const threshold = 50;
   const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - threshold;
-  
   if (isAtBottom) {
     loadMoreReply();
   }
@@ -373,13 +425,10 @@ function onReplyScroll(e) {
 
 function onLikeScroll(e) {
   const container = e.target;
-  
   if (likeLoading.value) return;
   if (likeCursor.value.is_end) return;
-  
   const threshold = 50;
   const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - threshold;
-  
   if (isAtBottom) {
     loadMoreLike();
   }
@@ -396,6 +445,14 @@ const selectedCount = computed(() =>
 const currentSelectedIds = computed(() =>
   currentTab.value === "reply" ? replySelectedIds.value : likeSelectedIds.value
 );
+
+// ---------- 初始化 ----------
+onMounted(() => {
+  // 如果用户已经保存了 cookie，并刷新页面，尝试自动加载当前 tab
+  if (isAuthed.value) {
+    loadMoreForTab(currentTab.value);
+  }
+});
 </script>
 
 <template>
@@ -447,21 +504,21 @@ const currentSelectedIds = computed(() =>
           <button
             class="btn btn-warning"
             @click="performDelete(true, false)"
-            :disabled="selectedCount === 0"
+            :disabled="replySelectedIds.size===0 && likeSelectedIds.size===0"
           >
             🗑️ 删除评论
           </button>
           <button
             class="btn btn-danger"
             @click="performDelete(false, true)"
-            :disabled="selectedCount === 0"
+            :disabled="replySelectedIds.size===0 && likeSelectedIds.size===0"
           >
             📬 删除消息通知
           </button>
           <button
             class="btn btn-danger"
             @click="performDelete(true, true)"
-            :disabled="selectedCount === 0"
+            :disabled="replySelectedIds.size===0 && likeSelectedIds.size===0"
           >
             💣 删除评论&消息
           </button>
@@ -469,6 +526,7 @@ const currentSelectedIds = computed(() =>
       </div>
 
       <div class="comment-list-container">
+        <!-- 回复列表 -->
         <div
           v-show="currentTab === 'reply'"
           class="comment-list"
@@ -481,6 +539,7 @@ const currentSelectedIds = computed(() =>
           >
             暂无数据
           </div>
+
           <div
             v-for="group in replyItems.reduce((acc, it) => {
               const key = it.item?.subject_id || it.id;
@@ -505,7 +564,7 @@ const currentSelectedIds = computed(() =>
             <input
               type="checkbox"
               :checked="currentSelectedIds.has(group.subject_id)"
-              @change="toggleSelect(group.subject_id)"
+              @change="toggleSelect(group.subject_id, 'reply')"
             />
             <div class="comment-body">
               <div class="comment-content">{{ group.title }}</div>
@@ -521,12 +580,14 @@ const currentSelectedIds = computed(() =>
               </div>
             </div>
           </div>
+
           <div v-if="replyLoading" class="loading">
             <div class="spinner"></div>
             <p>正在加载更多...</p>
           </div>
         </div>
 
+        <!-- 喜欢列表 -->
         <div
           v-show="currentTab === 'like'"
           class="comment-list"
@@ -545,7 +606,7 @@ const currentSelectedIds = computed(() =>
             <input
               type="checkbox"
               :checked="currentSelectedIds.has(item.id)"
-              @change="toggleSelect(item.id)"
+              @change="toggleSelect(item.id, 'like')"
             />
             <div class="comment-body">
               <div class="comment-content">
