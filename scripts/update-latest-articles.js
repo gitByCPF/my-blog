@@ -8,7 +8,7 @@ const CONFIG = {
   indexPath: 'docs/index.md',
   excludeDirs: ['.vitepress', 'public'],
   excludeFiles: ['index.md'],
-  jsonPath: 'latest-articles.json' // 存储最新文章信息的 JSON
+  jsonPath: 'latest-articles.json'
 }
 
 // 自定义分类显示名称
@@ -42,11 +42,17 @@ function getAllArticles() {
         const content = readFileSync(filePath, 'utf-8')
         const titleMatch = content.match(/^#\s+(.+)$/m)
         const title = titleMatch ? titleMatch[1].trim() : file.replace(/^\d+-/, '').replace('.md', '')
+        
+        // 获取文件的实际修改时间
+        const fileStats = statSync(filePath)
+        const fileMtime = fileStats.mtimeMs
+        
         articles.push({
           title,
           link: `/${item}/${file}`,
           category: CUSTOM_CATEGORY_NAMES[item] || item.charAt(0).toUpperCase() + item.slice(1),
-          filePath
+          filePath,
+          fileMtime // 添加文件的实际修改时间
         })
       }
     }
@@ -59,19 +65,37 @@ function getAllArticles() {
 function updateJSON() {
   const jsonFullPath = join(process.cwd(), CONFIG.jsonPath)
   let prevData = {}
+  
   if (existsSync(jsonFullPath)) {
-    prevData = JSON.parse(readFileSync(jsonFullPath, 'utf-8'))
+    const rawData = readFileSync(jsonFullPath, 'utf-8')
+    const parsed = JSON.parse(rawData)
+    
+    // 转换为 key-value 格式
+    if (Array.isArray(parsed)) {
+      parsed.forEach(item => {
+        prevData[item.link] = item
+      })
+    }
   }
 
   const articles = getAllArticles()
-  const timestamp = Date.now()
 
-  // 更新每篇文章的时间戳，如果已有就保留旧时间
+  // 使用文件的实际修改时间，如果 JSON 中已有且 JSON 中的时间更新，则使用 JSON 中的时间
   const updatedArticles = articles.map(a => {
     const key = a.link
+    const oldTime = prevData[key]?.mtime
+    const fileTime = a.fileMtime
+    
+    // 如果 JSON 中的时间比文件修改时间新，说明是用户手动更新的，保留 JSON 时间
+    // 否则使用文件的实际修改时间
+    const finalTime = (oldTime && oldTime > fileTime) ? oldTime : fileTime
+    
     return {
-      ...a,
-      mtime: prevData[key]?.mtime || timestamp
+      title: a.title,
+      link: a.link,
+      category: a.category,
+      filePath: a.filePath,
+      mtime: finalTime
     }
   })
 
