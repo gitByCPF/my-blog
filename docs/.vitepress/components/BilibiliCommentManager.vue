@@ -193,6 +193,8 @@ async function loadAllLikeFast() {
             it._source = "like";
             it.title = it.item?.title || "(无标题)";
             it.counts = it.counts ?? 0;
+            it.ctime = it.item?.ctime || 0;
+            it.like_time = it.like_time || 0;
           });
           return { items, cursor: res?.data?.total?.cursor };
         })
@@ -274,6 +276,8 @@ async function loadMoreLike() {
     it._source = "like";
     it.title = it.item?.title || "(无标题)";
     it.counts = it.counts ?? 0;
+    it.ctime = it.item?.ctime || 0;
+    it.like_time = it.like_time || 0;
   }
 
   likeItems.value.push(...items);
@@ -463,6 +467,7 @@ function cancelOperation() {
     abortController.value = null;
   }
   isLoading.value = false;
+  isLoadingAll.value = false;
   clearProgress();
   showMessage("操作已取消", "error");
 }
@@ -898,9 +903,22 @@ onMounted(() => {
             />
             <div class="comment-body">
               <div class="comment-content">
-                {{ item.item?.title || "(无标题)" }}
+                {{ item.title }}
               </div>
-              <div class="comment-meta">👍 {{ item.counts || 0 }} 个赞</div>
+              <div class="comment-meta">
+                <span class="meta-item">
+                  <span class="meta-label">评论时间:</span>
+                  <span class="meta-value">{{ formatTime(item.ctime) }}</span>
+                </span>
+                <span class="meta-item">
+                  <span class="meta-label">收到喜欢:</span>
+                  <span class="meta-value">{{ formatTime(item.like_time) }}</span>
+                </span>
+                <span class="meta-item">
+                  <span class="meta-label">👍</span>
+                  <span class="meta-value">{{ item.counts }} 个赞</span>
+                </span>
+              </div>
             </div>
           </div>
           <div v-if="likeLoading" class="loading">
@@ -1164,8 +1182,22 @@ textarea {
   font-size: 13px;
   color: #555;
   display: flex;
-  gap: 8px;
+  gap: 12px;
   flex-wrap: wrap;
+  align-items: center;
+}
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.meta-label {
+  color: #888;
+  font-size: 12px;
+}
+.meta-value {
+  color: #333;
+  font-weight: 500;
 }
 .loading {
   display: flex;
@@ -1182,14 +1214,6 @@ textarea {
   width: 24px;
   height: 24px;
   animation: spin 1s linear infinite;
-}
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
 }
 .empty-state {
   text-align: center;

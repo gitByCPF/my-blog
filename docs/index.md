@@ -65,8 +65,8 @@
 <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin: 2rem 0;">
 
 ### 📝 最近更新
+- [**B站评论消息管理工具**](/tools/01-B站实用接口.md) - Tools文章
 - [**🌀 Git Revert —— 优雅撤回已推送 Commit**](/git/02-revert抵消坏的提交.md) - Git文章
-- [**🛠 B站评论 & 消息管理工具**](/tools/01-B站实用接口.md) - Tools文章
 - [**React Hooks 详解**](/react/02-Hooks详解.md) - React文章
 - [**React 基础入门**](/react/01-基础入门.md) - React文章
 - [**🚀 Python 实践项目**](/python/08-实践项目.md) - Python文章
