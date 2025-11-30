@@ -304,22 +304,53 @@ async function loadMoreForTab(tab) {
 }
 
 // ---------- Cookie / 登录 ----------
-function saveCookie() {
+async function saveCookie() {
   const cookie = cookieInput.value.trim();
   if (!cookie) return showMessage("请输入 Cookie", "error");
   const match = cookie.match(/bili_jct=([^;]+)/);
   if (!match) return showMessage("Cookie 中缺少 bili_jct", "error");
   if (!cookie.includes("SESSDATA="))
     return showMessage("Cookie 中缺少 SESSDATA", "error");
+  
+  // 临时保存 Cookie，用于验证
   cookieStr.value = cookie;
   csrfToken.value = match[1];
-  isAuthed.value = true;
-  showMessage("Cookie 保存成功！", "success");
-  replyItems.value = [];
-  likeItems.value = [];
-  replyCursor.value = { id: 0, time: 0, is_end: false };
-  likeCursor.value = { id: 0, time: 0, is_end: false };
-  nextTick(() => loadMoreForTab(currentTab.value));
+  
+  // 验证 Cookie 是否有效
+  showMessage("正在验证 Cookie...", "success");
+  
+  try {
+    // 尝试加载第一页数据来验证 Cookie
+    const res = await apiGet(API.replyList, {});
+    
+    // 检查响应状态
+    if (!res) {
+      cookieStr.value = "";
+      csrfToken.value = "";
+      return showMessage("网络请求失败，请检查网络连接", "error");
+    }
+    
+    if (res.code !== 0) {
+      // Cookie 无效
+      cookieStr.value = "";
+      csrfToken.value = "";
+      const errorMsg = res.message || res.msg || "Cookie 验证失败";
+      return showMessage(`验证失败：${errorMsg}`, "error");
+    }
+    
+    // Cookie 有效，进入主界面
+    isAuthed.value = true;
+    showMessage("Cookie 验证成功！", "success");
+    replyItems.value = [];
+    likeItems.value = [];
+    replyCursor.value = { id: 0, time: 0, is_end: false };
+    likeCursor.value = { id: 0, time: 0, is_end: false };
+    nextTick(() => loadMoreForTab(currentTab.value));
+  } catch (e) {
+    cookieStr.value = "";
+    csrfToken.value = "";
+    showMessage(`验证失败：${e.message}`, "error");
+  }
 }
 
 function logout() {
@@ -699,6 +730,11 @@ onMounted(() => {
 
 <template>
   <div class="bili-comment-manager">
+    <!-- 消息提示框 -->
+    <div v-if="statusMessage.text" :class="['message-toast', `message-${statusMessage.type}`]">
+      {{ statusMessage.text }}
+    </div>
+
     <div v-if="!isAuthed" class="auth-section">
       <h2>🔑 输入 B站 Cookie</h2>
       <textarea
@@ -938,6 +974,40 @@ onMounted(() => {
   padding: 10px;
   font-family: "Microsoft YaHei", sans-serif;
   color: #333;
+  position: relative;
+}
+.message-toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 9999;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: slideDown 0.3s ease;
+  max-width: 500px;
+  word-wrap: break-word;
+}
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+.message-success {
+  background-color: #52c41a;
+  color: #fff;
+}
+.message-error {
+  background-color: #ff4d4f;
+  color: #fff;
 }
 textarea {
   width: 100%;

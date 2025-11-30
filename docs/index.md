@@ -65,12 +65,12 @@
 <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin: 2rem 0;">
 
 ### 📝 最近更新
+- [**Java 后端重返工作详细学习计划 - Day 1**](/java复习/01-第一天.md) - Java复习文章
+- [**Java后端重返工作8周详细学习计划**](/java/33-复习计划表.md) - Java文章
+- [**☕ Java 概述**](/java/01-Java概述.md) - Java文章
 - [**B站评论消息管理工具**](/tools/01-B站实用接口.md) - Tools文章
 - [**🌀 Git Revert —— 优雅撤回已推送 Commit**](/git/02-revert抵消坏的提交.md) - Git文章
 - [**React Hooks 详解**](/react/02-Hooks详解.md) - React文章
-- [**React 基础入门**](/react/01-基础入门.md) - React文章
-- [**🚀 Python 实践项目**](/python/08-实践项目.md) - Python文章
-- [**📁 Python 文件操作**](/python/07-文件操作.md) - Python文章
 
 </div>
 

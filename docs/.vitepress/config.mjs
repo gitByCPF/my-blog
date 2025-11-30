@@ -5,6 +5,7 @@ import { defineConfig } from 'vitepress'
 // 自定义导航顺序配置
 const CUSTOM_NAV_ORDER = [
   'java',
+  'java复习',
   'python',
   'tools',
   'react',
@@ -14,6 +15,7 @@ const CUSTOM_NAV_ORDER = [
 // 自定义分类显示名称
 const CUSTOM_CATEGORY_NAMES = {
   'java': 'Java',
+  'java复习': 'Java复习',
   'javascript': 'JavaScript', 
   'react': 'React',
   'python': 'Python',

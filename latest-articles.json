@@ -25,7 +25,7 @@
     "link": "/java/01-Java概述.md",
     "category": "Java",
     "filePath": "E:\\my-blog\\docs\\java\\01-Java概述.md",
-    "mtime": 1762698134843.2087
+    "mtime": 1764000117185.5732
   },
   {
     "title": "🔧 Java 开发环境搭建",
@@ -245,6 +245,13 @@
     "mtime": 1762698135284.5378
   },
   {
+    "title": "Java后端重返工作8周详细学习计划",
+    "link": "/java/33-复习计划表.md",
+    "category": "Java",
+    "filePath": "E:\\my-blog\\docs\\java\\33-复习计划表.md",
+    "mtime": 1764040677098.53
+  },
+  {
     "title": "JavaScript 基础语法",
     "link": "/javascript/01-基础语法.md",
     "category": "JavaScript",
@@ -264,6 +271,13 @@
     "category": "JavaScript",
     "filePath": "E:\\my-blog\\docs\\javascript\\03-异步编程.md",
     "mtime": 1762698135317.5378
+  },
+  {
+    "title": "Java 后端重返工作详细学习计划 - Day 1",
+    "link": "/java复习/01-第一天.md",
+    "category": "Java复习",
+    "filePath": "E:\\my-blog\\docs\\java复习\\01-第一天.md",
+    "mtime": 1764065431938.376
   },
   {
     "title": "🐍 Python 基础入门",
